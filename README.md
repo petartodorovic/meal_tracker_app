@@ -1,5 +1,7 @@
 # MacroCompass
 
+Eliza Hackathon project: `meal_tracker_app`.
+
 MacroCompass is a goal-based nutrition app for logging meals and tracking macros against build, shred, or maintain targets.
 
 ## Docs
