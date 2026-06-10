@@ -1,5 +1,6 @@
 import {
   Activity,
+  BarChart3,
   CalendarDays,
   ClipboardList,
   Dumbbell,
@@ -75,6 +76,73 @@ const statusLabels = {
   near_limit: "Near limit",
   over: "Over target",
 };
+
+type TrendPoint = {
+  day: string;
+  calories: number;
+  proteinGrams: number;
+  adherence: number;
+};
+
+const mealSuggestions = [
+  {
+    mealType: "Breakfast",
+    title: "Greek yogurt power bowl",
+    detail: "Greek yogurt, berries, oats, chia, honey",
+    macros: "430 cal · 36p · 52c · 9f",
+  },
+  {
+    mealType: "Breakfast",
+    title: "Eggs and avocado toast",
+    detail: "2 eggs, sourdough, avocado, fruit",
+    macros: "520 cal · 28p · 48c · 24f",
+  },
+  {
+    mealType: "Lunch",
+    title: "Chicken rice bowl",
+    detail: "Chicken breast, jasmine rice, salsa, greens",
+    macros: "650 cal · 52p · 74c · 14f",
+  },
+  {
+    mealType: "Lunch",
+    title: "Turkey hummus wrap",
+    detail: "Turkey, hummus, greens, tomato, side apple",
+    macros: "560 cal · 42p · 58c · 18f",
+  },
+  {
+    mealType: "Snack",
+    title: "Protein shake and banana",
+    detail: "Whey, banana, almond milk",
+    macros: "310 cal · 32p · 36c · 5f",
+  },
+  {
+    mealType: "Dinner",
+    title: "Salmon sweet potato plate",
+    detail: "Salmon, roasted sweet potato, asparagus",
+    macros: "690 cal · 46p · 58c · 28f",
+  },
+];
+
+function createTrendData(targets: NutritionTargets): TrendPoint[] {
+  const multipliers = [0.92, 0.98, 1.04, 0.89, 1.01, 0.96, 1.08, 0.94, 1.0, 1.06, 0.97, 0.91, 1.03, 0.99];
+  const proteinMultipliers = [0.88, 0.94, 1.01, 0.9, 1.08, 0.97, 1.12, 0.95, 1.03, 1.06, 0.98, 0.92, 1.1, 1.04];
+
+  return multipliers.map((multiplier, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (13 - index));
+    const calories = round(targets.calories * multiplier);
+    const proteinGrams = round(targets.proteinGrams * proteinMultipliers[index]);
+    const calorieScore = 1 - Math.min(Math.abs(calories - targets.calories) / targets.calories, 1);
+    const proteinScore = Math.min(proteinGrams / targets.proteinGrams, 1);
+
+    return {
+      day: date.toLocaleDateString("en-US", { weekday: "short" }),
+      calories,
+      proteinGrams,
+      adherence: round((calorieScore * 0.58 + proteinScore * 0.42) * 100),
+    };
+  });
+}
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState());
@@ -214,7 +282,7 @@ function App() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Local-first v0</p>
+            <p className="eyebrow">Macro command center</p>
             <h2>{state.profile.displayName || "Your"} nutrition board</h2>
           </div>
           <label className="date-control">
@@ -397,10 +465,15 @@ function TodayView({
   return (
     <div className="view-stack">
       <section className="hero-panel">
-        <div>
+        <div className="hero-copy">
           <p className="eyebrow">{goalLabels[progress.target.goalMode]} target</p>
           <h3>{round(progress.remaining.calories)} calories remaining</h3>
           <p>{statusLabels[progress.status]} for {progress.date}</p>
+          <div className="hero-stats">
+            <MetricPill label="Consumed" value={`${round(progress.consumed.calories)} cal`} />
+            <MetricPill label="Protein left" value={`${round(progress.remaining.proteinGrams)}g`} />
+            <MetricPill label="Target" value={`${progress.target.calories} cal`} />
+          </div>
         </div>
         <div className="calorie-ring" style={{ "--progress": `${Math.min(progress.percentComplete.calories * 100, 120)}%` } as React.CSSProperties}>
           <span>{round(progress.consumed.calories)}</span>
@@ -412,6 +485,11 @@ function TodayView({
         <MacroBar label="Protein" consumed={progress.consumed.proteinGrams} target={progress.target.proteinGrams} remaining={progress.remaining.proteinGrams} />
         <MacroBar label="Carbs" consumed={progress.consumed.carbGrams} target={progress.target.carbGrams} remaining={progress.remaining.carbGrams} />
         <MacroBar label="Fat" consumed={progress.consumed.fatGrams} target={progress.target.fatGrams} remaining={progress.remaining.fatGrams} />
+      </section>
+
+      <section className="insight-grid">
+        <TrendDashboard targets={progress.target} />
+        <MealSuggestions />
       </section>
 
       <section className="meal-board">
@@ -442,6 +520,95 @@ function TodayView({
           ))
         )}
       </section>
+    </div>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="metric-pill">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function TrendDashboard({ targets }: { targets: NutritionTargets }) {
+  const data = createTrendData(targets);
+  const width = 640;
+  const height = 220;
+  const padding = 28;
+  const maxCalories = Math.max(...data.map((point) => point.calories), targets.calories) * 1.08;
+  const minCalories = Math.min(...data.map((point) => point.calories), targets.calories) * 0.9;
+  const range = maxCalories - minCalories;
+  const linePoints = data
+    .map((point, index) => {
+      const x = padding + (index / (data.length - 1)) * (width - padding * 2);
+      const y = height - padding - ((point.calories - minCalories) / range) * (height - padding * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const targetY = height - padding - ((targets.calories - minCalories) / range) * (height - padding * 2);
+  const averageAdherence = round(data.reduce((total, point) => total + point.adherence, 0) / data.length);
+  const averageProtein = round(data.reduce((total, point) => total + point.proteinGrams, 0) / data.length);
+
+  return (
+    <div className="trend-panel">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Two-week trajectory</p>
+          <h3>Progress trend</h3>
+        </div>
+        <BarChart3 size={24} />
+      </div>
+      <div className="trend-metrics">
+        <MetricPill label="Adherence" value={`${averageAdherence}%`} />
+        <MetricPill label="Avg protein" value={`${averageProtein}g`} />
+        <MetricPill label="Daily target" value={`${targets.calories}`} />
+      </div>
+      <svg className="trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Two week calorie progress chart">
+        <line className="target-line" x1={padding} x2={width - padding} y1={targetY} y2={targetY} />
+        <polyline className="trend-line" points={linePoints} />
+        {data.map((point, index) => {
+          const x = padding + (index / (data.length - 1)) * (width - padding * 2);
+          const y = height - padding - ((point.calories - minCalories) / range) * (height - padding * 2);
+          const barHeight = Math.max(18, (point.adherence / 100) * 88);
+
+          return (
+            <g className="trend-point" key={`${point.day}-${index}`}>
+              <rect x={x - 8} y={height - padding - barHeight} width="16" height={barHeight} rx="5" />
+              <circle cx={x} cy={y} r="5" />
+              <text x={x} y={height - 6}>
+                {point.day[0]}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function MealSuggestions() {
+  return (
+    <div className="suggestion-panel">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Good examples</p>
+          <h3>Meal ideas</h3>
+        </div>
+        <Utensils size={24} />
+      </div>
+      <div className="suggestion-list">
+        {mealSuggestions.map((meal) => (
+          <article className="suggestion-card" key={`${meal.mealType}-${meal.title}`}>
+            <span>{meal.mealType}</span>
+            <strong>{meal.title}</strong>
+            <p>{meal.detail}</p>
+            <small>{meal.macros}</small>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }
@@ -616,18 +783,19 @@ function SavedFoodQuickAdd({
 }
 
 function HistoryView({ targets, logs }: { targets: NutritionTargets; logs: MealLogItem[] }) {
-  const dates = Array.from(new Set([isoToday(), ...logs.map((item) => item.date)])).sort().reverse().slice(0, 7);
+  const dates = Array.from(new Set([isoToday(), ...logs.map((item) => item.date)])).sort().reverse().slice(0, 14);
 
   return (
     <section className="view-stack">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Last 7 tracked days</p>
-          <h3>History</h3>
-        </div>
-        <History size={24} />
-      </div>
+      <TrendDashboard targets={targets} />
       <div className="history-list">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Logged days</p>
+            <h3>History</h3>
+          </div>
+          <History size={24} />
+        </div>
         {dates.map((date) => {
           const progress = calculateDailyProgress(date, targets, logs);
           return (
