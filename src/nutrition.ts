@@ -17,7 +17,7 @@ export const emptyTotals: NutritionTotals = {
   fatGrams: 0,
 };
 
-const activityMultipliers: Record<ActivityLevel, number> = {
+export const activityMultipliers: Record<ActivityLevel, number> = {
   sedentary: 1.2,
   light: 1.375,
   moderate: 1.55,
@@ -25,7 +25,7 @@ const activityMultipliers: Record<ActivityLevel, number> = {
   very_active: 1.9,
 };
 
-const goalAdjustments: Record<GoalMode, number> = {
+export const goalAdjustments: Record<GoalMode, number> = {
   build: 1.1,
   shred: 0.82,
   maintain: 1,
@@ -172,4 +172,3 @@ export function validateFood(values: FoodFormValues): string | null {
 
   return null;
 }
-

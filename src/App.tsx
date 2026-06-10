@@ -18,7 +18,9 @@ import {
 import { useEffect, useState } from "react";
 import {
   calculateDailyProgress,
+  estimateMaintenanceCalories,
   estimateTargets,
+  goalAdjustments,
   isoToday,
   makeId,
   round,
@@ -68,6 +70,14 @@ const goalLabels: Record<GoalMode, string> = {
   build: "Build",
   shred: "Shred",
   maintain: "Maintain",
+};
+
+const activityLabels: Record<UserProfile["activityLevel"], string> = {
+  sedentary: "Sedentary",
+  light: "Light",
+  moderate: "Moderate",
+  active: "Active",
+  very_active: "Very active",
 };
 
 const statusLabels = {
@@ -889,6 +899,19 @@ function SettingsView({
   const [draftProfile, setDraftProfile] = useState(profile);
   const [draftTargets, setDraftTargets] = useState(targets);
   const [message, setMessage] = useState<string | null>(null);
+  const maintenanceCalories = estimateMaintenanceCalories(draftProfile);
+  const goalEstimate = estimateTargets(draftProfile, draftTargets.goalMode);
+
+  function updateProfile(nextProfile: UserProfile) {
+    setDraftProfile(nextProfile);
+    setDraftTargets({ ...estimateTargets(nextProfile, draftTargets.goalMode), calculationMethod: "estimated" });
+    setMessage(null);
+  }
+
+  function updateGoalMode(goalMode: GoalMode) {
+    setDraftTargets({ ...estimateTargets(draftProfile, goalMode), calculationMethod: "estimated" });
+    setMessage(null);
+  }
 
   return (
     <form
@@ -908,10 +931,44 @@ function SettingsView({
           <Dumbbell size={24} />
         </div>
         <div className="form-grid">
-          <TextInput label="Name" value={draftProfile.displayName} onChange={(value) => setDraftProfile({ ...draftProfile, displayName: value })} />
-          <NumberInput label="Age" value={draftProfile.age} onChange={(value) => setDraftProfile({ ...draftProfile, age: value })} />
-          <NumberInput label="Height (in)" value={draftProfile.heightInches} onChange={(value) => setDraftProfile({ ...draftProfile, heightInches: value })} />
-          <NumberInput label="Weight (lb)" value={draftProfile.weightLbs} onChange={(value) => setDraftProfile({ ...draftProfile, weightLbs: value })} />
+          <TextInput label="Name" value={draftProfile.displayName} onChange={(value) => updateProfile({ ...draftProfile, displayName: value })} />
+          <NumberInput label="Age" value={draftProfile.age} onChange={(value) => updateProfile({ ...draftProfile, age: value })} />
+          <NumberInput label="Height (in)" value={draftProfile.heightInches} onChange={(value) => updateProfile({ ...draftProfile, heightInches: value })} />
+          <NumberInput label="Weight (lb)" value={draftProfile.weightLbs} onChange={(value) => updateProfile({ ...draftProfile, weightLbs: value })} />
+          <NumberInput
+            label="Training days"
+            value={draftProfile.trainingDaysPerWeek}
+            onChange={(value) => updateProfile({ ...draftProfile, trainingDaysPerWeek: value })}
+          />
+          <label className="field">
+            <span>Activity level</span>
+            <select
+              value={draftProfile.activityLevel}
+              onChange={(event) => updateProfile({ ...draftProfile, activityLevel: event.target.value as UserProfile["activityLevel"] })}
+            >
+              {Object.entries(activityLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Sex used for estimate</span>
+            <select
+              value={draftProfile.sex}
+              onChange={(event) => updateProfile({ ...draftProfile, sex: event.target.value as UserProfile["sex"] })}
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="unspecified">Unspecified</option>
+            </select>
+          </label>
+        </div>
+        <div className="calculation-summary">
+          <MetricPill label="Maintenance" value={`${maintenanceCalories} cal`} />
+          <MetricPill label="Activity" value={activityLabels[draftProfile.activityLevel]} />
+          <MetricPill label="Goal factor" value={`${round(goalAdjustments[draftTargets.goalMode] * 100)}%`} />
         </div>
       </section>
 
@@ -929,17 +986,24 @@ function SettingsView({
               type="button"
               className={draftTargets.goalMode === mode ? "selected" : ""}
               key={mode}
-              onClick={() => setDraftTargets({ ...estimateTargets(draftProfile, mode), calculationMethod: "manual" })}
+              onClick={() => updateGoalMode(mode)}
             >
               {goalLabels[mode]}
             </button>
           ))}
         </div>
+        <div className="target-explainer">
+          <strong>{goalEstimate.calories} estimated calories</strong>
+          <span>
+            Based on {activityLabels[draftProfile.activityLevel].toLowerCase()} activity, {draftProfile.trainingDaysPerWeek} training days,
+            and {goalLabels[draftTargets.goalMode].toLowerCase()} goal mode.
+          </span>
+        </div>
         <div className="macro-inputs">
-          <NumberInput label="Calories" value={draftTargets.calories} onChange={(value) => setDraftTargets({ ...draftTargets, calories: value })} />
-          <NumberInput label="Protein" value={draftTargets.proteinGrams} onChange={(value) => setDraftTargets({ ...draftTargets, proteinGrams: value })} />
-          <NumberInput label="Carbs" value={draftTargets.carbGrams} onChange={(value) => setDraftTargets({ ...draftTargets, carbGrams: value })} />
-          <NumberInput label="Fat" value={draftTargets.fatGrams} onChange={(value) => setDraftTargets({ ...draftTargets, fatGrams: value })} />
+          <NumberInput label="Calories" value={draftTargets.calories} onChange={(value) => setDraftTargets({ ...draftTargets, calories: value, calculationMethod: "manual" })} />
+          <NumberInput label="Protein" value={draftTargets.proteinGrams} onChange={(value) => setDraftTargets({ ...draftTargets, proteinGrams: value, calculationMethod: "manual" })} />
+          <NumberInput label="Carbs" value={draftTargets.carbGrams} onChange={(value) => setDraftTargets({ ...draftTargets, carbGrams: value, calculationMethod: "manual" })} />
+          <NumberInput label="Fat" value={draftTargets.fatGrams} onChange={(value) => setDraftTargets({ ...draftTargets, fatGrams: value, calculationMethod: "manual" })} />
         </div>
         <div className="action-row">
           <button className="primary-button" type="submit">

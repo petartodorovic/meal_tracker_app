@@ -43,6 +43,14 @@ describe("nutrition", () => {
     expect(shred.calories).toBeLessThan(maintain.calories);
   });
 
+  it("accounts for activity level in maintenance and target estimates", () => {
+    const sedentary = estimateTargets({ ...profile, activityLevel: "sedentary" }, "maintain");
+    const active = estimateTargets({ ...profile, activityLevel: "active" }, "maintain");
+
+    expect(active.calories).toBeGreaterThan(sedentary.calories);
+    expect(active.carbGrams).toBeGreaterThan(sedentary.carbGrams);
+  });
+
   it("scales food values by quantity", () => {
     const values: FoodFormValues = {
       name: "Eggs",
@@ -100,4 +108,3 @@ describe("nutrition", () => {
     expect(calculateStatus(1200, 1000)).toBe("over");
   });
 });
-

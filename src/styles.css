@@ -302,7 +302,8 @@ select {
 }
 
 .hero-stats,
-.trend-metrics {
+.trend-metrics,
+.calculation-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -730,6 +731,23 @@ small {
   gap: 10px;
 }
 
+.calculation-summary,
+.target-explainer {
+  padding: 14px;
+  background: rgba(83, 214, 197, 0.07);
+  border: 1px solid rgba(83, 214, 197, 0.18);
+  border-radius: 8px;
+}
+
+.target-explainer {
+  display: grid;
+  gap: 5px;
+}
+
+.target-explainer span {
+  color: var(--muted);
+}
+
 @keyframes grid-drift {
   from {
     background-position: 0 0, 0 0;
@@ -855,4 +873,3 @@ small {
     font-size: 3.2rem;
   }
 }
-
