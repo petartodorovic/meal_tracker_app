@@ -2,7 +2,7 @@
 
 ## Product Name
 
-Working name: MacroCompass
+Working name: Macronaut
 
 ## Problem
 

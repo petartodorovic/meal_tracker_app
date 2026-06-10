@@ -370,7 +370,7 @@ function App() {
             <Activity size={24} />
           </div>
           <div>
-            <p className="eyebrow">MacroCompass</p>
+            <p className="eyebrow">Macronaut</p>
             <h1>{goalLabels[state.targets.goalMode]} day</h1>
           </div>
         </div>
@@ -482,7 +482,7 @@ function Onboarding({
   return (
     <section className="onboarding">
       <div className="onboarding-copy">
-        <p className="eyebrow">MacroCompass</p>
+        <p className="eyebrow">Macronaut</p>
         <h1>Set the target before the meals start talking.</h1>
         <p>
           Pick the mode, tune the numbers, and v0 opens straight into the daily nutrition surface.
@@ -628,7 +628,7 @@ function TodayView({
             <h3>Logged today</h3>
           </div>
           <div className="table-toolbar">
-            <TableActions rows={mealRows} filename={`macrocompass-meals-${progress.date}.csv`} />
+            <TableActions rows={mealRows} filename={`macronaut-meals-${progress.date}.csv`} />
             <button className="secondary-button" onClick={onGoLog}>
               <Plus size={18} />
               Add food
@@ -1014,7 +1014,7 @@ function HistoryView({ targets, logs }: { targets: NutritionTargets; logs: MealL
             <h3>History</h3>
           </div>
           <div className="table-toolbar">
-            <TableActions rows={historyRows} filename="macrocompass-history.csv" />
+            <TableActions rows={historyRows} filename="macronaut-history.csv" />
             <History size={24} />
           </div>
         </div>
@@ -1068,7 +1068,7 @@ function FoodsView({
           <h3>Saved foods</h3>
         </div>
         <div className="table-toolbar">
-          <TableActions rows={foodRows} filename="macrocompass-saved-foods.csv" />
+          <TableActions rows={foodRows} filename="macronaut-saved-foods.csv" />
           <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
             {mealTypes.map((type) => (
               <option key={type} value={type}>

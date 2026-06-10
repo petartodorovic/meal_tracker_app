@@ -1,6 +1,7 @@
 import type { AppState } from "./types";
 
-const storageKey = "macrocompass:v0";
+const storageKey = "macronaut:v0";
+const legacyStorageKey = "macrocompass:v0";
 
 export const emptyState: AppState = {
   onboardingComplete: false,
@@ -10,13 +11,23 @@ export const emptyState: AppState = {
 
 export function loadState(): AppState {
   const stored = localStorage.getItem(storageKey);
+  const legacyStored = localStorage.getItem(legacyStorageKey);
 
-  if (!stored) {
+  if (!stored && !legacyStored) {
     return emptyState;
   }
 
   try {
-    return { ...emptyState, ...JSON.parse(stored) } as AppState;
+    const parsedState = stored ? ({ ...emptyState, ...JSON.parse(stored) } as AppState) : emptyState;
+    const legacyState = legacyStored ? ({ ...emptyState, ...JSON.parse(legacyStored) } as AppState) : undefined;
+    const shouldUseLegacy = legacyState?.onboardingComplete && !parsedState.onboardingComplete;
+    const activeState = shouldUseLegacy ? legacyState : parsedState;
+
+    if (shouldUseLegacy || (!stored && legacyState)) {
+      saveState(activeState);
+    }
+
+    return activeState;
   } catch {
     return emptyState;
   }
@@ -28,6 +39,6 @@ export function saveState(state: AppState): void {
 
 export function resetState(): AppState {
   localStorage.removeItem(storageKey);
+  localStorage.removeItem(legacyStorageKey);
   return emptyState;
 }
-
