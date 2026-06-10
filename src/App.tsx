@@ -1,8 +1,11 @@
 import {
   Activity,
   BarChart3,
+  Brain,
   CalendarDays,
   ClipboardList,
+  Copy,
+  Download,
   Dumbbell,
   Flame,
   History,
@@ -94,6 +97,17 @@ type TrendPoint = {
   adherence: number;
 };
 
+type InsightSummary = {
+  threeDayAdherence: number;
+  weekAdherence: number;
+  weekProtein: number;
+  fuelStatus: string;
+  recommendation: string;
+};
+
+type CsvValue = string | number;
+type CsvRow = Record<string, CsvValue>;
+
 const mealSuggestions = [
   {
     mealType: "Breakfast",
@@ -152,6 +166,93 @@ function createTrendData(targets: NutritionTargets): TrendPoint[] {
       adherence: round((calorieScore * 0.58 + proteinScore * 0.42) * 100),
     };
   });
+}
+
+function createInsightSummary(targets: NutritionTargets): InsightSummary {
+  const data = createTrendData(targets);
+  const lastThree = data.slice(-3);
+  const lastSeven = data.slice(-7);
+  const average = (values: number[]) => round(values.reduce((total, value) => total + value, 0) / values.length);
+  const threeDayAdherence = average(lastThree.map((point) => point.adherence));
+  const weekAdherence = average(lastSeven.map((point) => point.adherence));
+  const weekProtein = average(lastSeven.map((point) => point.proteinGrams));
+  const averageCalories = average(lastSeven.map((point) => point.calories));
+  const calorieDelta = averageCalories - targets.calories;
+  const proteinRatio = weekProtein / targets.proteinGrams;
+
+  if (proteinRatio >= 0.95 && Math.abs(calorieDelta) <= targets.calories * 0.07) {
+    return {
+      threeDayAdherence,
+      weekAdherence,
+      weekProtein,
+      fuelStatus: "Well fueled",
+      recommendation: "Your last week is close to target and protein support looks strong. Keep meals consistent and use carbs around training.",
+    };
+  }
+
+  if (calorieDelta < -targets.calories * 0.08) {
+    return {
+      threeDayAdherence,
+      weekAdherence,
+      weekProtein,
+      fuelStatus: "Slightly under-fueled",
+      recommendation: "You are trending light against the goal. Add one dense snack or a larger carb serving earlier in the day.",
+    };
+  }
+
+  return {
+    threeDayAdherence,
+    weekAdherence,
+    weekProtein,
+    fuelStatus: "Needs a small correction",
+    recommendation: "Calories are workable, but protein or consistency is drifting. Anchor breakfast and lunch with a clear protein source.",
+  };
+}
+
+function toCsv(rows: CsvRow[]): string {
+  if (rows.length === 0) {
+    return "";
+  }
+
+  const headers = Object.keys(rows[0]);
+  const escapeCell = (value: CsvValue) => {
+    const text = String(value);
+    return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  };
+
+  return [headers.join(","), ...rows.map((row) => headers.map((header) => escapeCell(row[header])).join(","))].join("\n");
+}
+
+async function copyRows(rows: CsvRow[]) {
+  await navigator.clipboard.writeText(toCsv(rows));
+}
+
+function exportRows(rows: CsvRow[], filename: string) {
+  const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function getCalorieTone(progress: ReturnType<typeof calculateDailyProgress>) {
+  if (progress.target.calories <= 0) {
+    return "calorie-warning";
+  }
+
+  const completion = progress.consumed.calories / progress.target.calories;
+
+  if (completion < 0.65 || completion > 1.1) {
+    return "calorie-danger";
+  }
+
+  if (completion < 0.9 || completion > 1.03) {
+    return "calorie-warning";
+  }
+
+  return "calorie-success";
 }
 
 function App() {
@@ -282,7 +383,7 @@ function App() {
           <NavButton view="settings" activeView={activeView} onSelect={setActiveView} icon={<Settings size={18} />} />
         </nav>
 
-        <div className="sidebar-panel">
+        <div className={`sidebar-panel ${getCalorieTone(progress)}`}>
           <p className="eyebrow">Today</p>
           <strong>{statusLabels[progress.status]}</strong>
           <span>{round(progress.remaining.calories)} calories remaining</span>
@@ -472,9 +573,24 @@ function TodayView({
   onDelete: (id: string) => void;
   onGoLog: () => void;
 }) {
+  const calorieTone = getCalorieTone(progress);
+  const mealRows = logs.map((item) => ({
+    date: item.date,
+    meal: item.mealType,
+    food: item.name,
+    quantity: item.quantity,
+    serving: item.servingLabel,
+    calories: item.calories,
+    protein: item.proteinGrams,
+    carbs: item.carbGrams,
+    fat: item.fatGrams,
+  }));
+
   return (
     <div className="view-stack">
-      <section className="hero-panel">
+      <AiInsights targets={progress.target} />
+
+      <section className={`hero-panel ${calorieTone}`}>
         <div className="hero-copy">
           <p className="eyebrow">{goalLabels[progress.target.goalMode]} target</p>
           <h3>{round(progress.remaining.calories)} calories remaining</h3>
@@ -485,7 +601,10 @@ function TodayView({
             <MetricPill label="Target" value={`${progress.target.calories} cal`} />
           </div>
         </div>
-        <div className="calorie-ring" style={{ "--progress": `${Math.min(progress.percentComplete.calories * 100, 120)}%` } as React.CSSProperties}>
+        <div
+          className={`calorie-ring ${calorieTone}`}
+          style={{ "--progress": `${Math.min(progress.percentComplete.calories * 100, 120)}%` } as React.CSSProperties}
+        >
           <span>{round(progress.consumed.calories)}</span>
           <small>of {progress.target.calories}</small>
         </div>
@@ -508,10 +627,13 @@ function TodayView({
             <p className="eyebrow">Meals</p>
             <h3>Logged today</h3>
           </div>
-          <button className="secondary-button" onClick={onGoLog}>
-            <Plus size={18} />
-            Add food
-          </button>
+          <div className="table-toolbar">
+            <TableActions rows={mealRows} filename={`macrocompass-meals-${progress.date}.csv`} />
+            <button className="secondary-button" onClick={onGoLog}>
+              <Plus size={18} />
+              Add food
+            </button>
+          </div>
         </div>
 
         {logs.length === 0 ? (
@@ -530,6 +652,63 @@ function TodayView({
           ))
         )}
       </section>
+    </div>
+  );
+}
+
+function AiInsights({ targets }: { targets: NutritionTargets }) {
+  const insight = createInsightSummary(targets);
+
+  return (
+    <section className="ai-insights">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">AI Insights</p>
+          <h3>{insight.fuelStatus}</h3>
+        </div>
+        <Brain size={24} />
+      </div>
+      <p>{insight.recommendation}</p>
+      <div className="insight-stats">
+        <MetricPill label="Last 3 days" value={`${insight.threeDayAdherence}%`} />
+        <MetricPill label="Last week" value={`${insight.weekAdherence}%`} />
+        <MetricPill label="Avg protein" value={`${insight.weekProtein}g`} />
+      </div>
+    </section>
+  );
+}
+
+function TableActions({ rows, filename }: { rows: CsvRow[]; filename: string }) {
+  const [status, setStatus] = useState<string | null>(null);
+  const disabled = rows.length === 0;
+
+  async function handleCopy() {
+    if (disabled) {
+      return;
+    }
+
+    await copyRows(rows);
+    setStatus("Copied");
+  }
+
+  function handleExport() {
+    if (disabled) {
+      return;
+    }
+
+    exportRows(rows, filename);
+    setStatus("Exported");
+  }
+
+  return (
+    <div className="table-actions">
+      {status && <span>{status}</span>}
+      <button className="icon-button" type="button" aria-label={`Copy ${filename}`} disabled={disabled} onClick={handleCopy}>
+        <Copy size={17} />
+      </button>
+      <button className="icon-button" type="button" aria-label={`Export ${filename}`} disabled={disabled} onClick={handleExport}>
+        <Download size={17} />
+      </button>
     </div>
   );
 }
@@ -751,7 +930,13 @@ function LogView({
         {message && <p className="form-message">{message}</p>}
       </form>
 
-      <SavedFoodQuickAdd foods={foods} onAddSavedFood={onAddSavedFood} />
+      <SavedFoodQuickAdd
+        foods={foods}
+        onAddSavedFood={(food, mealType) => {
+          onAddSavedFood(food, mealType);
+          setMessage(`${food.name} added to ${mealType}.`);
+        }}
+      />
     </div>
   );
 }
@@ -764,6 +949,7 @@ function SavedFoodQuickAdd({
   onAddSavedFood: (food: Food, mealType: MealType) => void;
 }) {
   const [mealType, setMealType] = useState<MealType>("snack");
+  const [message, setMessage] = useState<string | null>(null);
 
   return (
     <section className="tool-panel">
@@ -782,18 +968,41 @@ function SavedFoodQuickAdd({
       </div>
       <div className="food-list">
         {foods.map((food) => (
-          <button className="food-button" key={food.id} onClick={() => onAddSavedFood(food, mealType)}>
+          <button
+            className="food-button"
+            key={food.id}
+            type="button"
+            onClick={() => {
+              onAddSavedFood(food, mealType);
+              setMessage(`${food.name} added to ${mealType}.`);
+            }}
+          >
             <strong>{food.name}</strong>
             <span>{food.calories} cal · {food.proteinGrams}p</span>
           </button>
         ))}
       </div>
+      {message && <p className="form-message">{message}</p>}
     </section>
   );
 }
 
 function HistoryView({ targets, logs }: { targets: NutritionTargets; logs: MealLogItem[] }) {
   const dates = Array.from(new Set([isoToday(), ...logs.map((item) => item.date)])).sort().reverse().slice(0, 14);
+  const historyRows = dates.map((date) => {
+    const progress = calculateDailyProgress(date, targets, logs);
+
+    return {
+      date,
+      status: statusLabels[progress.status],
+      calories: round(progress.consumed.calories),
+      targetCalories: targets.calories,
+      protein: round(progress.consumed.proteinGrams),
+      targetProtein: targets.proteinGrams,
+      carbs: round(progress.consumed.carbGrams),
+      fat: round(progress.consumed.fatGrams),
+    };
+  });
 
   return (
     <section className="view-stack">
@@ -804,22 +1013,24 @@ function HistoryView({ targets, logs }: { targets: NutritionTargets; logs: MealL
             <p className="eyebrow">Logged days</p>
             <h3>History</h3>
           </div>
-          <History size={24} />
+          <div className="table-toolbar">
+            <TableActions rows={historyRows} filename="macrocompass-history.csv" />
+            <History size={24} />
+          </div>
         </div>
-        {dates.map((date) => {
-          const progress = calculateDailyProgress(date, targets, logs);
+        {historyRows.map((row) => {
           return (
-            <div className="history-row" key={date}>
+            <div className="history-row" key={row.date}>
               <div>
-                <strong>{date}</strong>
-                <span>{statusLabels[progress.status]}</span>
+                <strong>{row.date}</strong>
+                <span>{row.status}</span>
               </div>
               <div>
-                <strong>{round(progress.consumed.calories)}</strong>
+                <strong>{row.calories}</strong>
                 <span>of {targets.calories} cal</span>
               </div>
               <div>
-                <strong>{round(progress.consumed.proteinGrams)}g</strong>
+                <strong>{row.protein}g</strong>
                 <span>protein</span>
               </div>
             </div>
@@ -840,6 +1051,14 @@ function FoodsView({
   onDeleteFood: (id: string) => void;
 }) {
   const [mealType, setMealType] = useState<MealType>("snack");
+  const foodRows = foods.map((food) => ({
+    food: food.name,
+    serving: food.servingLabel,
+    calories: food.calories,
+    protein: food.proteinGrams,
+    carbs: food.carbGrams,
+    fat: food.fatGrams,
+  }));
 
   return (
     <section className="view-stack">
@@ -848,13 +1067,16 @@ function FoodsView({
           <p className="eyebrow">Reusable foods</p>
           <h3>Saved foods</h3>
         </div>
-        <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
-          {mealTypes.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
+        <div className="table-toolbar">
+          <TableActions rows={foodRows} filename="macrocompass-saved-foods.csv" />
+          <select value={mealType} onChange={(event) => setMealType(event.target.value as MealType)}>
+            {mealTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="food-table">
         {foods.length === 0 ? (

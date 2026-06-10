@@ -149,12 +149,12 @@ h1 {
 
 h2 {
   margin-bottom: 0;
-  font-size: clamp(2rem, 3.6vw, 4rem);
+  font-size: clamp(1.7rem, 2.7vw, 3.1rem);
 }
 
 h3 {
   margin-bottom: 0;
-  font-size: 1.35rem;
+  font-size: 1.12rem;
 }
 
 .nav-list {
@@ -198,6 +198,21 @@ h3 {
 .sidebar-panel span {
   margin-top: 4px;
   color: var(--muted);
+}
+
+.sidebar-panel.calorie-danger {
+  border-color: rgba(255, 107, 107, 0.38);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.08);
+}
+
+.sidebar-panel.calorie-warning {
+  border-color: rgba(255, 141, 91, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(255, 141, 91, 0.1);
+}
+
+.sidebar-panel.calorie-success {
+  border-color: rgba(154, 230, 110, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(154, 230, 110, 0.1);
 }
 
 .workspace {
@@ -251,7 +266,8 @@ select {
 .food-table,
 .onboarding-panel,
 .trend-panel,
-.suggestion-panel {
+.suggestion-panel,
+.ai-insights {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -259,17 +275,66 @@ select {
   backdrop-filter: blur(20px);
 }
 
+.ai-insights {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(320px, 1.2fr);
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(135deg, rgba(83, 214, 197, 0.12), transparent 42%),
+    rgba(14, 24, 27, 0.86);
+}
+
+.ai-insights .section-heading {
+  justify-content: flex-start;
+}
+
+.ai-insights p {
+  margin: 0;
+  color: var(--soft);
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.insight-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .hero-panel {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(210px, 0.36fr);
   gap: 24px;
-  min-height: 250px;
+  min-height: 220px;
   overflow: hidden;
   padding: 30px;
   background:
     linear-gradient(135deg, rgba(23, 39, 42, 0.98), rgba(12, 18, 21, 0.88)),
     linear-gradient(90deg, rgba(83, 214, 197, 0.14), transparent 38%);
+}
+
+.hero-panel.calorie-danger {
+  border-color: rgba(255, 107, 107, 0.36);
+  background:
+    linear-gradient(135deg, rgba(42, 23, 24, 0.98), rgba(12, 18, 21, 0.88)),
+    linear-gradient(90deg, rgba(255, 107, 107, 0.16), transparent 38%);
+}
+
+.hero-panel.calorie-warning {
+  border-color: rgba(255, 141, 91, 0.4);
+  background:
+    linear-gradient(135deg, rgba(42, 31, 23, 0.98), rgba(12, 18, 21, 0.88)),
+    linear-gradient(90deg, rgba(255, 141, 91, 0.17), transparent 38%);
+}
+
+.hero-panel.calorie-success {
+  border-color: rgba(154, 230, 110, 0.38);
+  background:
+    linear-gradient(135deg, rgba(23, 42, 31, 0.98), rgba(12, 18, 21, 0.88)),
+    linear-gradient(90deg, rgba(154, 230, 110, 0.14), transparent 38%);
 }
 
 .hero-panel::after {
@@ -293,7 +358,7 @@ select {
 .hero-panel h3 {
   max-width: 12ch;
   margin: 0;
-  font-size: clamp(2.4rem, 5vw, 5rem);
+  font-size: clamp(2rem, 4vw, 3.7rem);
 }
 
 .hero-panel p:not(.eyebrow) {
@@ -311,7 +376,7 @@ select {
 
 .metric-pill {
   min-width: 118px;
-  padding: 10px 12px;
+  padding: 9px 11px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -349,6 +414,26 @@ select {
   border-radius: 50%;
   box-shadow: inset 0 0 44px rgba(83, 214, 197, 0.08), 0 0 44px rgba(255, 141, 91, 0.16);
   animation: ring-breathe 5s ease-in-out infinite;
+}
+
+.calorie-ring.calorie-danger {
+  background:
+    radial-gradient(circle, rgba(9, 17, 20, 0.98) 58%, transparent 59%),
+    conic-gradient(var(--danger) var(--progress), rgba(255, 255, 255, 0.11) 0);
+  box-shadow: inset 0 0 44px rgba(255, 107, 107, 0.08), 0 0 44px rgba(255, 107, 107, 0.18);
+}
+
+.calorie-ring.calorie-warning {
+  background:
+    radial-gradient(circle, rgba(9, 17, 20, 0.98) 58%, transparent 59%),
+    conic-gradient(var(--coral) var(--progress), rgba(255, 255, 255, 0.11) 0);
+}
+
+.calorie-ring.calorie-success {
+  background:
+    radial-gradient(circle, rgba(9, 17, 20, 0.98) 58%, transparent 59%),
+    conic-gradient(var(--mint) var(--progress), rgba(255, 255, 255, 0.11) 0);
+  box-shadow: inset 0 0 44px rgba(154, 230, 110, 0.08), 0 0 44px rgba(154, 230, 110, 0.16);
 }
 
 .calorie-ring span {
@@ -421,14 +506,26 @@ select {
 
 .trend-panel {
   display: grid;
-  gap: 18px;
+  grid-template-columns: minmax(220px, 0.62fr) minmax(360px, 1.38fr);
+  align-items: center;
+  gap: 14px 20px;
 }
 
 .trend-chart {
   display: block;
   width: 100%;
-  min-height: 230px;
+  max-height: 190px;
+  min-height: 150px;
   overflow: visible;
+}
+
+.trend-panel .section-heading {
+  align-self: end;
+}
+
+.trend-panel .trend-chart {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .target-line {
@@ -557,6 +654,25 @@ small {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.08);
   border-radius: 8px;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.table-toolbar,
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.table-actions span {
+  color: var(--sea);
+  font-size: 0.78rem;
+  font-weight: 850;
 }
 
 .primary-button,
@@ -798,9 +914,19 @@ small {
 }
 
 @media (max-width: 1120px) {
+  .ai-insights,
   .insight-grid,
   .two-column-view {
     grid-template-columns: 1fr;
+  }
+
+  .trend-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .trend-panel .trend-chart {
+    grid-column: auto;
+    grid-row: auto;
   }
 }
 
